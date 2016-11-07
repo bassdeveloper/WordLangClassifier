@@ -1,124 +1,127 @@
-import sys
+import re
 from os.path import join
 
+import numpy
 import numpy as np
 from numpy import genfromtxt
-from segtok import tokenizer
 
 from ngramgen import find_n_grams
 
-testdata = ['Too cultivated use solicitude frequently.'
-            'Dashwood likewise up consider continue entrance ladyship oh.'
-            'Wrong guest given purse power is no.'
-            'Friendship to connection an am considered difficulty.'
-            'Country met pursuit lasting moments why calling certain the.'
-            'Middletons boisterous our way understood law.'
-            'Among state cease how and sight since shall.'
-            'Material did pleasure breeding our humanity she contempt had.'
-            'So ye really mutual no cousin piqued summer result.']
 
-data = "".join(testdata).split(".")
+class Classifier:
+    def __init__(self, path):
+        self.data_dir = path
+        self.gram_dir = join(self.data_dir, "processed_data")
+        self.english_bi_wc = genfromtxt(join(self.gram_dir, "english_bigram_wc.txt"), delimiter=',',
+                                        dtype=([('gram', np.str_, 2), ('count', int)]))
+        self.english_tri_wc = genfromtxt(join(self.gram_dir, "english_trigram_wc.txt"), delimiter=',',
+                                         dtype=([('gram', np.str_, 3), ('count', int)]))
+        self.english_quad_wc = genfromtxt(join(self.gram_dir, "english_quadgram_wc.txt"), delimiter=',',
+                                          dtype=([('gram', np.str_, 4), ('count', int)]))
+        self.english_pent_wc = genfromtxt(join(self.gram_dir, "english_pentagram_wc.txt"), delimiter=',',
+                                          dtype=([('gram', np.str_, 5), ('count', int)]))
+        self.english_hexa_wc = genfromtxt(join(self.gram_dir, "english_hexagram_wc.txt"), delimiter=',',
+                                          dtype=([('gram', np.str_, 6), ('count', int)]))
 
-data_dir = sys.argv[1]
-gram_dir = join(data_dir, "processed_data")
+        self.english_bi_total = sum(count for count in self.english_bi_wc['count'])
+        self.english_tri_total = sum(count for count in self.english_tri_wc['count'])
+        self.english_quad_total = sum(count for count in self.english_quad_wc['count'])
+        self.english_pent_total = sum(count for count in self.english_pent_wc['count'])
+        self.english_hexa_total = sum(count for count in self.english_hexa_wc['count'])
 
-langs = ["english", "hindi"]
+        # hindi = genfromtxt(join(data_dir, "hindi_train.txt"), delimiter=',', dtype=str)
+        self.hindi_bi_wc = genfromtxt(join(self.gram_dir, "hindi_bigram_wc.txt"), delimiter=',',
+                                      dtype=([('gram', np.str_, 2), ('count', int)]))
+        self.hindi_tri_wc = genfromtxt(join(self.gram_dir, "hindi_trigram_wc.txt"), delimiter=',',
+                                       dtype=([('gram', np.str_, 3), ('count', int)]))
+        self.hindi_quad_wc = genfromtxt(join(self.gram_dir, "hindi_quadgram_wc.txt"), delimiter=',',
+                                        dtype=([('gram', np.str_, 4), ('count', int)]))
+        self.hindi_pent_wc = genfromtxt(join(self.gram_dir, "hindi_pentagram_wc.txt"), delimiter=',',
+                                        dtype=([('gram', np.str_, 5), ('count', int)]))
+        self.hindi_hexa_wc = genfromtxt(join(self.gram_dir, "hindi_hexagram_wc.txt"), delimiter=',',
+                                        dtype=([('gram', np.str_, 6), ('count', int)]))
 
-classes = []
+        self.hindi_bi_total = sum(count for count in self.hindi_bi_wc['count'])
+        self.hindi_tri_total = sum(count for count in self.hindi_tri_wc['count'])
+        self.hindi_quad_total = sum(count for count in self.hindi_quad_wc['count'])
+        self.hindi_pent_total = sum(count for count in self.hindi_pent_wc['count'])
+        self.hindi_hexa_total = sum(count for count in self.hindi_hexa_wc['count'])
 
-english = genfromtxt(join(data_dir, "english_train.txt"), delimiter=',', dtype=str)
-english_bi_wc = genfromtxt(join(gram_dir, "english_bigram_wc.txt"), delimiter=',',
-                           dtype=([('gram', np.str_, 2), ('count', int)]))
-english_tri_wc = genfromtxt(join(gram_dir, "english_trigram_wc.txt"), delimiter=',',
-                            dtype=([('gram', np.str_, 3), ('count', int)]))
-english_quad_wc = genfromtxt(join(gram_dir, "english_quadgram_wc.txt"), delimiter=',',
-                             dtype=([('gram', np.str_, 4), ('count', int)]))
-english_pent_wc = genfromtxt(join(gram_dir, "english_pentagram_wc.txt"), delimiter=',',
-                             dtype=([('gram', np.str_, 5), ('count', int)]))
-english_hexa_wc = genfromtxt(join(gram_dir, "english_hexagram_wc.txt"), delimiter=',',
-                             dtype=([('gram', np.str_, 6), ('count', int)]))
+    # noinspection SpellCheckingInspection
+    def classify(self, data, e_multiplier, h_multiplier):
+        classes = []
+        allwords = []
 
-hindi = genfromtxt(join(data_dir, "hindi_train.txt"), delimiter=',', dtype=str)
-hindi_bi_wc = genfromtxt(join(gram_dir, "hindi_bigram_wc.txt"), delimiter=',',
-                         dtype=([('gram', np.str_, 2), ('count', int)]))
-hindi_tri_wc = genfromtxt(join(gram_dir, "hindi_trigram_wc.txt"), delimiter=',',
-                          dtype=([('gram', np.str_, 3), ('count', int)]))
-hindi_quad_wc = genfromtxt(join(gram_dir, "hindi_quadgram_wc.txt"), delimiter=',',
-                           dtype=([('gram', np.str_, 4), ('count', int)]))
-hindi_pent_wc = genfromtxt(join(gram_dir, "hindi_pentagram_wc.txt"), delimiter=',',
-                           dtype=([('gram', np.str_, 5), ('count', int)]))
-hindi_hexa_wc = genfromtxt(join(gram_dir, "hindi_hexagram_wc.txt"), delimiter=',',
-                           dtype=([('gram', np.str_, 6), ('count', int)]))
+        words = re.sub(r'[^a-zA-Z ]', '', data.lower()).split()
 
-for line in data:
-    words = tokenizer.split_contractions(tokenizer.split_possessive_markers(line.lower().split()))
-    for word in words:
-        answerfound = False
-        lengthofword = currentlength = len(word)
+        allwords.extend(words)
+        for word in words:
+            lengthofword = currentlength = len(word)
 
-        if lengthofword > 6:
-            currentlength = 6
-        while answerfound is not True and currentlength > 1:
-            grams = find_n_grams(word, currentlength)
-            grams.sort()
-            hindicounter = 0
-            englishcounter = 0
-            multiplier = 10000000
+            if lengthofword > 6:
+                currentlength = 6
 
-            # if currentlength == lengthofword:
-            #    if word in english:
-            #        englishcounter += 1
-            #    if word in hindi:
-            #        hindicounter += 1
-            #    if englishcounter > hindicounter:
-            #        classes.append('E')
-            #        break
-            #    elif hindicounter > englishcounter:
-            #        classes.append('H')
-            #        break
-            #    if englishcounter == hindicounter and answerfound is not True:
-            #        classes.append('E/H')
-            #        break
+            if currentlength > 1:
+                for gram_length in range(2, currentlength + 1):
+                    grams = find_n_grams(word, gram_length)
+                    hindicounter = 0
+                    englishcounter = 0
 
-            for gram in grams:
-                if currentlength == 6:
-                    if gram in english_hexa_wc['gram']:
-                        englishcounter += 1 * multiplier
-                    if gram in hindi_hexa_wc['gram']:
-                        hindicounter += 1 * multiplier
-                if currentlength == 5:
-                    if gram in english_pent_wc['gram']:
-                        englishcounter += 1 * multiplier
-                    if gram in hindi_pent_wc['gram']:
-                        hindicounter += 1 * multiplier
-                if currentlength == 4:
-                    if gram in english_quad_wc['gram']:
-                        englishcounter += 1 * multiplier
-                    if gram in hindi_quad_wc['gram']:
-                        hindicounter += 1 * multiplier
-                if currentlength == 3:
-                    if gram in english_tri_wc['gram']:
-                        englishcounter += 1 * multiplier
-                    if gram in hindi_tri_wc['gram']:
-                        hindicounter += 1 * multiplier
-                if currentlength == 2:
-                    if gram in english_bi_wc['gram']:
-                        englishcounter += 1 * multiplier
-                    if gram in hindi_bi_wc['gram']:
-                        hindicounter += 1 * multiplier
+                    for gram in grams:
+                        if gram_length == 6:
+                            if gram in self.english_hexa_wc['gram']:
+                                index = numpy.where(self.english_hexa_wc['gram'] == gram)[0][0]
+                                englishcounter += 1 * e_multiplier[4] * self.english_hexa_wc['count'][
+                                    index] / self.english_hexa_total
+                            if gram in self.hindi_hexa_wc['gram']:
+                                index = numpy.where(self.hindi_hexa_wc['gram'] == gram)[0][0]
+                                hindicounter += 1 * h_multiplier[4] * self.hindi_hexa_wc['count'][
+                                    index] / self.hindi_hexa_total
+                        elif gram_length == 5:
+                            if gram in self.english_pent_wc['gram']:
+                                index = numpy.where(self.english_pent_wc['gram'] == gram)[0][0]
+                                englishcounter += 1 * e_multiplier[3] * self.english_pent_wc['count'][
+                                    index] / self.english_pent_total
+                            if gram in self.hindi_pent_wc['gram']:
+                                index = numpy.where(self.hindi_pent_wc['gram'] == gram)[0][0]
+                                hindicounter += 1 * h_multiplier[3] * self.hindi_pent_wc['count'][
+                                    index] / self.hindi_pent_total
+                        elif gram_length == 4:
+                            if gram in self.english_quad_wc['gram']:
+                                index = numpy.where(self.english_quad_wc['gram'] == gram)[0][0]
+                                englishcounter += 1 * e_multiplier[2] * self.english_quad_wc['count'][
+                                    index] / self.english_quad_total
+                            if gram in self.hindi_quad_wc['gram']:
+                                index = numpy.where(self.hindi_quad_wc['gram'] == gram)[0][0]
+                                hindicounter += 1 * h_multiplier[2] * self.hindi_quad_wc['count'][
+                                    index] / self.hindi_quad_total
+                        elif gram_length == 3:
+                            if gram in self.english_tri_wc['gram']:
+                                index = numpy.where(self.english_tri_wc['gram'] == gram)[0][0]
+                                englishcounter += 1 * e_multiplier[1] * self.english_tri_wc['count'][
+                                    index] / self.english_tri_total
+                            if gram in self.hindi_tri_wc['gram']:
+                                index = numpy.where(self.hindi_tri_wc['gram'] == gram)[0][0]
+                                hindicounter += 1 * h_multiplier[1] * self.hindi_tri_wc['count'][
+                                    index] / self.hindi_tri_total
+                        elif gram_length == 2:
+                            if gram in self.english_bi_wc['gram']:
+                                index = numpy.where(self.english_bi_wc['gram'] == gram)[0][0]
+                                englishcounter += 1 * e_multiplier[0] * self.english_bi_wc['count'][
+                                    index] / self.english_bi_total
+                            if gram in self.hindi_bi_wc['gram']:
+                                index = numpy.where(self.hindi_bi_wc['gram'] == gram)[0][0]
+                                hindicounter += 1 * h_multiplier[0] * self.hindi_bi_wc['count'][
+                                    index] / self.hindi_bi_total
 
-            if englishcounter > hindicounter:
-                answerfound = True
+                if englishcounter > hindicounter:
+                    classes.append('E')
+                elif hindicounter > englishcounter:
+                    classes.append('H')
+                elif englishcounter == hindicounter:
+                    classes.append('E/H')
+
+            if lengthofword == 1:
                 classes.append('E')
-            elif hindicounter > englishcounter:
-                answerfound = True
-                classes.append('H')
 
-            multiplier /= 10
-            if englishcounter == hindicounter and answerfound is not True:
-                answerfound = True
-                classes.append('E/H')
-            currentlength -= 1
-        if lengthofword == 1:
-            classes.append('E')
-print(classes)
+        return classes
