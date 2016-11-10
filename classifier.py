@@ -145,7 +145,7 @@ class Classifier:
                 elif hindicounter > 1.1*englishcounter:
                     classes.append('H')
                 else:
-                    classes.append('E/H')
+                    classes.append('H/E')
 
             if lengthofword == 1:
                 classes.append('E')
