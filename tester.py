@@ -1,4 +1,3 @@
-import re
 import sys
 
 from classifier import Classifier
@@ -6,13 +5,25 @@ from classifier import Classifier
 
 def test_acc():
     cl = Classifier(sys.argv[1])
+    avg_acc = 0
+    count = 0
+    len_wise_acc = {}
     with open(sys.argv[2]) as infile:
         for line in infile:
-            # Dummy weights of 10000
-            pred_classes = cl.classify(line.rstrip("\w"), [10000]*5, [10000]*5)
-            print(line.rstrip("\w"))
+            pred_classes = cl.classify(line.rstrip("\w"))
             tagged_classes = infile.readline().rstrip("\n").split(" ")
-            print(accuracy(pred_classes, tagged_classes))
+            print(line.lower().rstrip("\w").rstrip("\n"))
+            acc = accuracy(pred_classes, tagged_classes)
+            print(acc)
+            avg_acc += acc * (len(pred_classes)) / 100
+            count += len(pred_classes)
+            if len(pred_classes) > 0:
+                try:
+                    len_wise_acc[str(len(tagged_classes) - 1)] += acc
+                except KeyError:
+                    len_wise_acc[str(len(tagged_classes) - 1)] = acc
+
+    print(avg_acc * 100 / count)
 
 
 def accuracy(pred_classes, tagged_classes):
@@ -28,4 +39,7 @@ def accuracy(pred_classes, tagged_classes):
             elif v == 'H/E':
                 if k == 'H' or k == "E":
                     match += 1
-    return match * 100 / len(pred_classes) * 2
+    return match * 100 / (len(pred_classes) * 2)
+
+
+test_acc()
